@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WS Admin</title>
+    <script>
+      // При загрузке страницы или при смене тем, лучше добавить встроенно в `head`, чтобы избежать FOUC
+      document.documentElement.classList.toggle(
+              "dark",
+              localStorage.theme === "dark" ||
+              (!("theme" in localStorage) && window.matchMedia("(prefers-color-scheme: dark)").matches),
+      );
+      // // Всякий раз, когда пользователь явно выбирает светлый режим
+      // localStorage.theme = "light";
+      // // Всякий раз, когда пользователь явно выбирает тёмный режим
+      // localStorage.theme = "dark";
+      // // Всякий раз, когда пользователь явно выбирает уважать предпочтения ОС
+      // localStorage.removeItem("theme");
+    </script>
+    <script type="module" crossorigin src="/assets/index-D8GSA6yd.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-DStahKMj.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

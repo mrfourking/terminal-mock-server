@@ -4,6 +4,7 @@ import { DarkModeToggle } from "./components/toggle"
 
 import Logo from "./assets/logo.png"
 import { Badge, BadgeTypeEnum } from "./components/Badge"
+import Button from "./components/Button"
 
 enum ConnectionStatus {
   connecting = "connecting",
@@ -18,10 +19,11 @@ type Log = {
 
 function App() {
   const [logs, setLogs] = useState<Log[]>([])
-  const [, /*clients*/ setClients] = useState<string[]>([])
-  const [selectedClient /*setSelectedClient*/] = useState<string>("")
-  const [message /*setMessage*/] = useState('{\n  "type": "test"\n}')
+  const [clients, setClients] = useState<string[]>([])
+  const [selectedClient, setSelectedClient] = useState<string>("")
+  const [message, setMessage] = useState('{\n  "type": "test"\n}')
   const [status, setStatus] = useState<ConnectionStatus>(ConnectionStatus.connecting)
+  const [parseError, setParseError] = useState("")
 
   const wsRef = useRef<WebSocket | null>(null)
 
@@ -38,20 +40,43 @@ function App() {
   }, [status])
 
   const send = () => {
+    let payload = null
+    try {
+      payload = JSON.parse(message)
+    } catch (e) {
+      setParseError("Введен не валидный JSON")
+    }
+
+    if (!payload) {
+      return
+    }
+
     wsRef.current?.send(
       JSON.stringify({
         type: "send",
         clientId: selectedClient,
-        payload: JSON.parse(message),
+        payload,
       }),
     )
   }
 
   const broadcast = () => {
+    console.log("broadcast", message, JSON.parse(message))
+    let payload = null
+    try {
+      payload = JSON.parse(message)
+    } catch (e) {
+      setParseError("Введен не валидный JSON")
+    }
+
+    if (!payload) {
+      return
+    }
+
     wsRef.current?.send(
       JSON.stringify({
         type: "broadcast",
-        payload: JSON.parse(message),
+        payload,
       }),
     )
   }
@@ -148,13 +173,22 @@ function App() {
         </div>
       </div>
       <div className="flex flex-1 overflow-hidden gap-4 px-2">
-        <div className="w-64  dark:bg-gray-950 border border-gray-400 dark:border-gray-800 p-2 overflow-auto rounded-lg">
-          клиенты
+        <div className="w-72 dark:bg-gray-950 border border-gray-400 dark:border-gray-800 p-2 overflow-auto rounded-lg">
+          {clients.length > 0 &&
+            clients.map((client) => (
+              <div
+                key={client}
+                className={`font-mono text-xs mb-1 p-1 rounded ${client === selectedClient ? "bg-indigo-400 dark:bg-indigo-700 text-white" : ""}`}
+                onClick={() => setSelectedClient(client)}
+              >
+                {client}
+              </div>
+            ))}
         </div>
         <div className="flex-1  dark:bg-gray-950 border p-2 border-gray-400 dark:border-gray-800 overflow-auto text-sm font-mono rounded-lg">
           {logs.length > 0 ? (
-            logs.map((log) => (
-              <p key={log.time}>
+            logs.map((log, index) => (
+              <p key={log.time + index}>
                 {log.time} - {log.message}
               </p>
             ))
@@ -164,12 +198,22 @@ function App() {
         </div>
       </div>
       <div className="px-2 min-h-1/4">
-        <div className="h-full flex border-t border-r border-gray-400 dark:border-gray-800  dark:bg-gray-950 border-l rounded-t-lg p-3">
-          <div className="flex flex-col">
-            <button onClick={send}>Send to client</button>
-            <button onClick={broadcast}>Broadcast</button>
+        <div className="h-full flex gap-4 border-t border-r border-gray-400 dark:border-gray-800  dark:bg-gray-950 border-l rounded-t-lg p-3">
+          <div className="flex flex-col gap-2">
+            <Button onClick={send}>Send to client</Button>
+            <Button onClick={broadcast}>Broadcast</Button>
           </div>
-          <div></div>
+          <div className="flex-1 flex flex-col gap-2">
+            <textarea
+              defaultValue={message}
+              className="bg-white dark:bg-gray-600 w-full flex-1 rounded-lg dark:outline-white p-2"
+              onChange={(e) => {
+                setParseError("")
+                setMessage(e.target.value)
+              }}
+            />
+            {parseError && <div className="text-red-600">{parseError}</div>}
+          </div>
         </div>
       </div>
     </section>

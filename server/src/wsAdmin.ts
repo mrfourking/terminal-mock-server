@@ -1,6 +1,5 @@
 import { WebSocketServer, WebSocket, RawData } from "ws"
-
-type ClientId = string
+import { AdminClientSetter, ClientId, Logger } from "./types"
 
 interface AdminMessage {
   type: "send" | "broadcast" | "ping"
@@ -11,11 +10,12 @@ interface AdminMessage {
 // Сокеты для админки
 class WsAdmin {
   private wss: WebSocketServer
-  private adminClients: Set<WebSocket>
 
   constructor(
     private clients: Map<ClientId, WebSocket>,
-    // private log: Logger,
+    private adminClients: Set<WebSocket>,
+    private updateAdminClients: AdminClientSetter,
+    private log: Logger,
   ) {
     this.wss = new WebSocketServer({ noServer: true })
     this.adminClients = new Set()
@@ -30,12 +30,13 @@ class WsAdmin {
 
   // Обработка соединения сокетов
   private handleConnection(ws: WebSocket) {
-    console.log("here")
-    this.adminClients.add(ws)
+    console.log("admin client connected")
+    // this.adminClients.add(ws)
+    this.updateAdminClients(ws, "set")
 
     ws.on("close", () => {
-      console.log("client disconnected")
-      this.adminClients.delete(ws)
+      console.log("admin client disconnected")
+      this.updateAdminClients(ws, "delete")
     })
 
     ws.on("message", (message) => {
@@ -47,7 +48,6 @@ class WsAdmin {
   private handleMessage(ws: WebSocket, message: RawData) {
     try {
       const data: AdminMessage = JSON.parse(message.toString())
-      // console.log("message", data)
 
       if (data.type === "send" && data.clientId) {
         const client = this.clients.get(data.clientId)
@@ -70,20 +70,6 @@ class WsAdmin {
     } catch {
       this.log("Invalid admin message")
     }
-  }
-
-  public log(message: string): void {
-    console.log(message)
-
-    console.log("adminClients log:", this.adminClients.size)
-
-    const payload = JSON.stringify({
-      type: "log",
-      message,
-      time: new Date().toISOString(),
-    })
-
-    this.adminClients.forEach((ws) => ws.send(payload))
   }
 
   // Доступ к экзепляру сервера

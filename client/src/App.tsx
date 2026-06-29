@@ -5,6 +5,8 @@ import { DarkModeToggle } from "./components/toggle"
 import Logo from "./assets/logo.png"
 import { Badge, BadgeTypeEnum } from "./components/Badge"
 import Button from "./components/Button"
+import { type Log } from "./components/Logs/LogItem"
+import { LogContainer } from "./components/Logs"
 
 enum ConnectionStatus {
   connecting = "connecting",
@@ -12,16 +14,19 @@ enum ConnectionStatus {
   connected = "connected",
 }
 
-type Log = {
-  message: string
-  time: string
+interface IMock {
+  id: string
+  name: string
 }
 
 function App() {
   const [logs, setLogs] = useState<Log[]>([])
   const [clients, setClients] = useState<string[]>([])
+  const [mocks, setMocks] = useState<IMock[]>([])
   const [selectedClient, setSelectedClient] = useState<string>("")
-  const [message, setMessage] = useState('{\n  "type": "test"\n}')
+  const [message, setMessage] = useState(
+    '{\n  "type": "app-command", \n  "command": "show-info" \n}',
+  )
   const [status, setStatus] = useState<ConnectionStatus>(ConnectionStatus.connecting)
   const [parseError, setParseError] = useState("")
 
@@ -38,6 +43,10 @@ function App() {
         return BadgeTypeEnum.danger
     }
   }, [status])
+
+  const clearLogs = () => {
+    setLogs([])
+  }
 
   const send = () => {
     let payload = null
@@ -60,23 +69,13 @@ function App() {
     )
   }
 
-  const broadcast = () => {
-    console.log("broadcast", message, JSON.parse(message))
-    let payload = null
-    try {
-      payload = JSON.parse(message)
-    } catch (e) {
-      setParseError("Введен не валидный JSON")
-    }
-
-    if (!payload) {
-      return
-    }
-
+  const getMock = (id: string | number) => {
     wsRef.current?.send(
       JSON.stringify({
-        type: "broadcast",
-        payload,
+        type: "mock:get",
+        payload: {
+          id,
+        },
       }),
     )
   }
@@ -105,10 +104,16 @@ function App() {
 
         ws.send(JSON.stringify({ type: "ping" }))
       }, 2000)
+
+      ws.send(JSON.stringify({ type: "mocks:get_list" }))
     }
 
     ws.onmessage = (e) => {
       const data = JSON.parse(e.data)
+
+      if (data.type === "clients") {
+        setClients(data.clients)
+      }
 
       if (data.type === "pong") {
         lastPong = Date.now()
@@ -128,6 +133,14 @@ function App() {
           setClients((prev) => prev.filter((c) => c !== id))
         }
       }
+
+      if (data.type === "mocks:list") {
+        setMocks(data.list)
+      }
+
+      if (data.type === "mock:get") {
+        setMessage(data.message)
+      }
     }
 
     ws.onclose = () => {
@@ -142,7 +155,6 @@ function App() {
   useEffect(() => {
     connect()
     return () => {
-      console.log("disconnected")
       wsRef.current?.close()
     }
   }, [])
@@ -185,27 +197,27 @@ function App() {
               </div>
             ))}
         </div>
-        <div className="flex-1  dark:bg-gray-950 border p-2 border-gray-400 dark:border-gray-800 overflow-auto text-sm font-mono rounded-lg">
-          {logs.length > 0 ? (
-            logs.map((log, index) => (
-              <p key={log.time + index}>
-                {log.time} - {log.message}
-              </p>
-            ))
-          ) : (
-            <p>Логов пока что нет...</p>
-          )}
-        </div>
+        <LogContainer logs={logs} clearLogs={clearLogs} />
       </div>
-      <div className="px-2 min-h-1/4">
+      <div className="px-2 min-h-1/2">
         <div className="h-full flex gap-4 border-t border-r border-gray-400 dark:border-gray-800  dark:bg-gray-950 border-l rounded-t-lg p-3">
-          <div className="flex flex-col gap-2">
-            <Button onClick={send}>Send to client</Button>
-            <Button onClick={broadcast}>Broadcast</Button>
+          <div className="flex-1 flex flex-col gap-2">
+            <div>
+              <Button onClick={send}>Send to client</Button>
+            </div>
+            <h3>Шаблоны сообщений:</h3>
+            <div className="grid grid-cols-2 gap-4">
+              {mocks.map((mock) => (
+                <Button onClick={() => getMock(mock.id)} key={mock.id}>
+                  {mock.name}
+                </Button>
+              ))}
+            </div>
           </div>
           <div className="flex-1 flex flex-col gap-2">
             <textarea
               defaultValue={message}
+              value={message}
               className="bg-white dark:bg-gray-600 w-full flex-1 rounded-lg dark:outline-white p-2"
               onChange={(e) => {
                 setParseError("")

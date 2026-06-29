@@ -5,18 +5,22 @@ import { WebSocket } from "ws"
 
 import wsAdmin from "./wsAdmin"
 import WsClient from "./wsClient"
-import { ClientId } from "./types"
+import { ClientId, ClientsMapType } from "./types"
 
 const app = express()
 const server = http.createServer(app)
 
-const clients: Map<ClientId, WebSocket> = new Map()
+const clients: ClientsMapType = new Map()
 const adminClients: Set<WebSocket> = new Set()
 
 // ===== UPDATE CLIENTS ======
 
-function updateClients(type: "set" | "delete", id: ClientId, client?: WebSocket) {
+function updateClients(type: "set" | "update" | "delete", id: ClientId, client?: WebSocket) {
   if (type === "set" && client) {
+    clients.set(id, client)
+  }
+
+  if (type === "update" && client) {
     clients.set(id, client)
   }
 
@@ -38,11 +42,9 @@ function updateAdminClients(client: WebSocket, type: "set" | "delete") {
 }
 
 // ===== LOGGER =====
-function log(message: string): void {
-  console.log("log:", message)
-
+function log(message: string, type: string = "log"): void {
   const payload = JSON.stringify({
-    type: "log",
+    type,
     message,
     time: new Date().toISOString(),
   })
@@ -51,10 +53,10 @@ function log(message: string): void {
 }
 
 // ===== CLIENT =====
-const clientWSS = new WsClient(updateClients, log)
+const clientWSS = new WsClient(clients, updateClients, log)
 
 // ===== ADMIN =====
-const adminWSS = new wsAdmin(clients, adminClients, updateAdminClients, log)
+const adminWSS = new wsAdmin(clients, updateAdminClients, log)
 
 server.on("upgrade", (req, socket, head) => {
   if (req.url === "/admin-ws") {

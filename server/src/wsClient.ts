@@ -1,11 +1,12 @@
 import { WebSocket, WebSocketServer } from "ws"
-import { v4 as uuid } from "uuid"
-import { ClientSetter, Logger } from "./types"
+// import { v4 as uuid } from "uuid"
+import { ClientSetter, ClientsMapType, Logger } from "./types"
 
 class WsClient {
   private wss: WebSocketServer
 
   constructor(
+    private clients: ClientsMapType,
     private updateClients: ClientSetter,
     private log: Logger,
   ) {
@@ -20,15 +21,28 @@ class WsClient {
 
   private handleConnection(ws: WebSocket) {
     console.log("client connected")
-    const id = uuid()
+    const id = `terminal-${this.clients.size + 1}`
     this.updateClients("set", id, ws)
 
-    ws.send(JSON.stringify({ type: "welcome", id }))
+    // ws.send(JSON.stringify({ type: "welcome", id }))
 
     this.log(`Client connected: ${id}`)
 
     ws.on("message", (msg) => {
-      this.log(`FROM ${id}: ${msg}`)
+      let parsed
+
+      try {
+        parsed = JSON.parse(msg.toString())
+      } catch (e) {
+        console.error(e)
+      }
+
+      if (parsed.type === "ping") {
+        this.log(`FROM ${id}: ${msg}`, "heartbeat")
+        ws.send(JSON.stringify({ type: "pong" }))
+      } else {
+        this.log(`FROM ${id}: ${msg}`)
+      }
     })
 
     ws.on("close", () => {
